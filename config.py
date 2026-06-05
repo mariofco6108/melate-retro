@@ -1,5 +1,5 @@
 
-FILT"""
+"""
 config.py — Parámetros centralizados del sistema.
 
 Todos los valores ajustables del algoritmo viven aquí.
@@ -64,8 +64,5 @@ class DataConfig:
 # Instancias listas para importar
 LOTTERY = LotteryConfig()
 FILTERS = FilterConfig()
-GENERATOR = GeneratorConfig()
-DATA = DataConfig()
-ERS = FilterConfig()
 GENERATOR = GeneratorConfig()
 DATA = DataConfig()
