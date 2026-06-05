@@ -1,4 +1,3 @@
-
 """
 config.py — Parámetros centralizados del sistema.
 
