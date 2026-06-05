@@ -1,4 +1,5 @@
-"""
+
+FILT"""
 config.py — Parámetros centralizados del sistema.
 
 Todos los valores ajustables del algoritmo viven aquí.
@@ -30,15 +31,15 @@ class FilterConfig:
     hot_numbers_top_n   — Cuántos números "calientes" tomar del histórico reciente.
     recent_draws        — Ventana de sorteos recientes para calcular rachas.
 
-    Universo válido con estos parámetros: ~9,907 combinaciones de 3,262,623 posibles.
-    Probabilidad de acertar: 1 en 9,907 (vs 1 en 3,262,623 sin filtros).
+    Universo válido con estos parámetros: ~624 combinaciones de 3,262,623 posibles.
+    Probabilidad de acertar: 1 en 624 (vs 1 en 3,262,623 sin filtros).
     """
-    sum_min: int = 120
-    sum_max: int = 123
+    sum_min: int = 119
+    sum_max: int = 122
     even_count: int = 3
     low_threshold: int = 19
     low_count: int = 3
-    min_spread: int = 33
+    min_spread: int = 38
     max_consecutive: int = 0
     hot_numbers_top_n: int = 8
     recent_draws: int = 30
@@ -63,5 +64,8 @@ class DataConfig:
 # Instancias listas para importar
 LOTTERY = LotteryConfig()
 FILTERS = FilterConfig()
+GENERATOR = GeneratorConfig()
+DATA = DataConfig()
+ERS = FilterConfig()
 GENERATOR = GeneratorConfig()
 DATA = DataConfig()
