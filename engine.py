@@ -12,11 +12,16 @@ Este módulo no importa Streamlit. Es 100% testeable con pytest.
 import logging
 import random
 from dataclasses import dataclass, field
+from itertools import combinations
 
 from config import FILTERS, GENERATOR, LOTTERY
 from data import HotNumbers, is_already_drawn
 
 logger = logging.getLogger(__name__)
+
+# Umbral: si el universo válido es menor a este número,
+# se usa selección directa en lugar de búsqueda aleatoria.
+_DIRECT_SELECTION_THRESHOLD = 5_000
 
 
 # ---------------------------------------------------------------------------
@@ -88,14 +93,31 @@ _FILTER_PIPELINE = [
 def is_optimal_combination(combo: list[int]) -> bool:
     """
     Aplica el pipeline completo de filtros sobre una combinación ordenada.
-
     Usa short-circuit: en cuanto un filtro falla, descarta la combinación.
     """
     return all(f(combo) for f in _FILTER_PIPELINE)
 
 
 # ---------------------------------------------------------------------------
-# Generador de candidatos
+# Construcción del universo válido completo (para universos pequeños)
+# ---------------------------------------------------------------------------
+
+def build_valid_universe() -> list[list[int]]:
+    """
+    Genera todas las combinaciones válidas de forma determinista.
+    Se usa cuando el universo es lo suficientemente pequeño para
+    ser enumerado completo (< _DIRECT_SELECTION_THRESHOLD).
+    """
+    universe = []
+    for combo in combinations(range(LOTTERY.min_number, LOTTERY.max_number + 1), LOTTERY.pick_count):
+        if is_optimal_combination(list(combo)):
+            universe.append(list(combo))
+    logger.info("Universo válido construido: %d combinaciones.", len(universe))
+    return universe
+
+
+# ---------------------------------------------------------------------------
+# Generador de candidatos (estrategia aleatoria — para universos grandes)
 # ---------------------------------------------------------------------------
 
 def _generate_candidate(hot: list[int], cold: list[int]) -> list[int]:
@@ -121,19 +143,36 @@ def generate_tickets(
     Genera hasta `requested` boletos que pasen todos los filtros
     y no hayan salido antes en el histórico.
 
-    Args:
-        requested:       Cantidad de boletos deseados.
-        hot_numbers:     Números calientes y fríos calculados por data.py.
-        historical_set:  Set de combinaciones ya sorteadas para lookup O(1).
-
-    Returns:
-        GenerationResult con los boletos encontrados y estadísticas.
+    Estrategia adaptativa:
+    - Universo pequeño (< 5,000): construye el universo completo y selecciona al azar.
+    - Universo grande: búsqueda aleatoria con pipeline de filtros.
     """
     capped_request = min(requested, GENERATOR.max_tickets)
     result = GenerationResult(requested=capped_request)
-
     seen_this_run: set[frozenset] = set()
 
+    # --- Estrategia 1: Selección directa del universo completo ---
+    universe = build_valid_universe()
+
+    if len(universe) <= _DIRECT_SELECTION_THRESHOLD:
+        # Filtrar los que ya salieron en el histórico
+        candidates = [
+            c for c in universe
+            if not is_already_drawn(c, historical_set)
+        ]
+        random.shuffle(candidates)
+
+        for candidate in candidates[:capped_request]:
+            result.total_attempts += 1
+            result.tickets.append(candidate)
+
+        logger.info(
+            "Selección directa: %d válidas en universo de %d, entregando %d boletos.",
+            len(candidates), len(universe), result.found_count
+        )
+        return result
+
+    # --- Estrategia 2: Búsqueda aleatoria (universo grande) ---
     while (
         result.found_count < capped_request
         and result.total_attempts < GENERATOR.max_attempts
@@ -144,10 +183,8 @@ def generate_tickets(
 
         if candidate_key in seen_this_run:
             continue
-
         if not is_optimal_combination(candidate):
             continue
-
         if is_already_drawn(candidate, historical_set):
             continue
 
@@ -156,11 +193,8 @@ def generate_tickets(
 
     if result.found_count < capped_request:
         logger.warning(
-            "Solo se encontraron %d de %d boletos solicitados en %d intentos. "
-            "Considera relajar los filtros en FilterConfig.",
-            result.found_count,
-            capped_request,
-            result.total_attempts,
+            "Solo se encontraron %d de %d boletos solicitados en %d intentos.",
+            result.found_count, capped_request, result.total_attempts,
         )
 
     return result
